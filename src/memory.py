@@ -2,6 +2,7 @@ import dataclasses
 import orjson
 from typing import Any, List, Optional
 import numpy as np
+from scipy.spatial.distance import cdist
 import os
 import config as cfg
 
@@ -49,13 +50,12 @@ class Memory:
         self.data.texts.append(text)
 
         embedding = self.llm.embed(text)
-
         vector = np.array(embedding).astype(np.float32)
         vector = vector[np.newaxis, :]
         self.data.embeddings = np.concatenate(
             [
-                vector,
                 self.data.embeddings,
+                vector,
             ],
             axis=0,
         )
@@ -92,14 +92,8 @@ class Memory:
         Returns: List[str]
         """
         embedding = self.llm.embed(text)
-
-        scores = np.dot(self.data.embeddings, embedding)
-
+        scores = 1 - cdist(self.data.embeddings, np.expand_dims(embedding, axis=0), 'cosine').flatten()
         top_k_indices = np.argsort(scores)[-k:][::-1]
-        top_k_scores = scores[top_k_indices]
-
-        print(top_k_scores)
-
         return [self.data.texts[i] for i in top_k_indices]
 
     def get_stats(self):
